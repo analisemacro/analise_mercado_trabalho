@@ -1,0 +1,22 @@
+# Arquivos temporarios do Python
+__pycache__/
+*.pyc
+
+# Arquivos temporarios do Quarto
+.quarto/
+*.quarto_ipynb
+*_files/
+/relatorio.html
+/relatorio.pdf
+
+# Arquivos intermediarios da coleta
+mercado_trabalho_novo.csv
+*.tmp
+
+# Logs da rotina (mudam a cada execucao)
+logs/
+
+# Sistema
+Thumbs.db
+desktop.ini
+.vscode/

@@ -1,0 +1,139 @@
+---
+title: "Emprego e renda no Brasil"
+lang: pt-BR
+format:
+  html:
+    embed-resources: true
+    theme: cosmo
+    fontsize: 1.05em
+  typst:
+    papersize: a4
+    margin:
+      x: 2cm
+      y: 2cm
+execute:
+  echo: false
+  warning: false
+jupyter: python3
+---
+
+```{python}
+# Todo numero deste relatorio sai de mercado_trabalho.csv e divulgacoes.csv.
+import csv
+import os
+from datetime import datetime
+from pathlib import Path
+
+import matplotlib
+import matplotlib.pyplot as plt
+
+PASTA = Path(os.environ.get("PASTA_DADOS", "."))
+MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
+         "agosto", "setembro", "outubro", "novembro", "dezembro"]
+
+with open(PASTA / "mercado_trabalho.csv", encoding="utf-8-sig") as f:
+    linhas = list(csv.DictReader(f, delimiter=";"))
+datas = [datetime.strptime(l["data"], "%Y-%m-%d") for l in linhas]
+desemp = [float(l["taxa_desemprego"]) for l in linhas]
+rend = [float(l["rendimento_medio_real"]) for l in linhas]
+
+with open(PASTA / "divulgacoes.csv", encoding="utf-8-sig") as f:
+    chegadas = {l["mes_referencia"]: l["data_chegada"] for l in csv.DictReader(f, delimiter=";")}
+
+
+def br(x, casas):
+    return f"{x:,.{casas}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def nome_mes(d):
+    return f"{MESES[d.month - 1]} de {d.year}"
+
+
+def trimestre(d):
+    inicio = MESES[(d.month - 3) % 12]
+    return f"{inicio} a {MESES[d.month - 1]} de {d.year}" if d.month >= 3 \
+        else f"{inicio} de {d.year - 1} a {MESES[d.month - 1]} de {d.year}"
+
+
+def var_desemp(i):
+    dif = round(desemp[-1] - desemp[i], 1)
+    if dif == 0:
+        return f"ficou igual ({br(desemp[i], 1)}% em {nome_mes(datas[i])})"
+    verbo = "caiu" if dif < 0 else "subiu"
+    pontos = "ponto percentual" if abs(dif) <= 1 else "pontos percentuais"
+    return f"{verbo} {br(abs(dif), 1)} {pontos} (era {br(desemp[i], 1)}% em {nome_mes(datas[i])})"
+
+
+def var_rend(i):
+    dif = rend[-1] - rend[i]
+    pct = (rend[-1] / rend[i] - 1) * 100
+    if round(dif) == 0:
+        return f"ficou igual (R$ {br(rend[i], 0)} em {nome_mes(datas[i])})"
+    verbo = "subiu" if dif > 0 else "caiu"
+    return (f"{verbo} R$ {br(abs(dif), 0)}, ou {br(abs(pct), 1)}% "
+            f"(era R$ {br(rend[i], 0)} em {nome_mes(datas[i])})")
+
+
+ultimo = datas[-1]
+mes_ref = nome_mes(ultimo)
+tri_ref = trimestre(ultimo)
+chegada_iso = chegadas.get(linhas[-1]["data"])
+chegada = datetime.strptime(chegada_iso, "%Y-%m-%d").strftime("%d/%m/%Y") if chegada_iso else "não registrada"
+desemp_ult = br(desemp[-1], 1)
+rend_ult = br(rend[-1], 0)
+desemp_1m, desemp_12m = var_desemp(-2), var_desemp(-13)
+rend_1m, rend_12m = var_rend(-2), var_rend(-13)
+inicio = nome_mes(datas[0])
+```
+
+## Resultado de `{python} mes_ref`
+
+**Dados divulgados pelo IBGE e obtidos no Banco Central em `{python} chegada`.**
+
+::: {.callout-note appearance="simple"}
+## Desemprego: `{python} desemp_ult`%
+
+Em relação ao mês anterior, `{python} desemp_1m`.
+Em relação a doze meses atrás, `{python} desemp_12m`.
+:::
+
+::: {.callout-note appearance="simple"}
+## Rendimento médio: R$ `{python} rend_ult` por mês
+
+Em relação ao mês anterior, `{python} rend_1m`.
+Em relação a doze meses atrás, `{python} rend_12m`.
+:::
+
+## O que esses números medem
+
+A **taxa de desemprego** é a parcela das pessoas que procuraram trabalho e não encontraram, entre todas as que estão trabalhando ou procurando trabalho. Quem não procura emprego, como estudantes que só estudam ou aposentados, fica fora da conta.
+
+O **rendimento médio real** é quanto, em média, uma pessoa que trabalha ganha por mês com todos os seus trabalhos. A palavra "real" quer dizer que a inflação já foi descontada: os valores de meses antigos estão corrigidos para o poder de compra de hoje, e por isso dá para comparar épocas diferentes.
+
+Os dois números vêm da PNAD Contínua, a pesquisa do IBGE que entrevista famílias em todo o país. O resultado de `{python} mes_ref` é a média dos três meses de `{python} tri_ref`. Por isso a mudança de um mês para o outro costuma ser pequena.
+
+## Como os números evoluíram desde `{python} inicio`
+
+```{python}
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(9, 6.5), dpi=150, sharex=True)
+for ax, valores, cor, titulo, rotulo in [
+    (ax1, desemp, "#1f4e79", "Taxa de desemprego (%)", f"{desemp_ult}%"),
+    (ax2, rend, "#2a9d8f", "Rendimento médio real (R$ por mês)", f"R$ {rend_ult}"),
+]:
+    ax.plot(datas, valores, color=cor, linewidth=2)
+    ax.scatter([datas[-1]], [valores[-1]], color=cor, zorder=3)
+    ax.annotate(rotulo, (datas[-1], valores[-1]), xytext=(8, 0),
+                textcoords="offset points", va="center", color=cor, fontweight="bold")
+    ax.set_title(titulo, loc="left", fontsize=12, fontweight="bold")
+    ax.grid(axis="y", alpha=0.3)
+    ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: br(v, 0)))
+    for lado in ("top", "right"):
+        ax.spines[lado].set_visible(False)
+fig.tight_layout(rect=(0, 0, 0.93, 1))
+fig.savefig("grafico_relatorio.png")
+plt.close(fig)
+```
+
+![](grafico_relatorio.png){width=100%}
+
+Fonte: IBGE, PNAD Contínua, obtida no Sistema Gerenciador de Séries Temporais (SGS) do Banco Central, séries 24369 e 24382.
