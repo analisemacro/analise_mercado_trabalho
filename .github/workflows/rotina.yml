@@ -1,0 +1,68 @@
+# Roda a rotina inteira no GitHub, com um clique em Actions > "Rotina mensal" > "Run workflow".
+name: Rotina mensal
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rotina
+  cancel-in-progress: false
+
+jobs:
+  rotina:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TZ: America/Sao_Paulo
+    steps:
+      - name: Baixar o projeto
+        uses: actions/checkout@v4
+
+      - name: Instalar o Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar as bibliotecas Python
+        run: pip install -r requirements.txt
+
+      - name: Instalar o Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: "Passo 1: coletar os dados"
+        run: python rotina.py coletar
+
+      - name: "Passo 2: testar os dados"
+        run: python rotina.py testar
+
+      - name: "Passo 3: calcular e escrever o resumo"
+        run: python rotina.py resumo
+
+      - name: "Passo 4: montar o relatorio"
+        run: python rotina.py relatorio
+
+      - name: Guardar o resultado no repositorio
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A mercado_trabalho.csv divulgacoes.csv resumo.json relatorios docs
+          if git diff --cached --quiet; then
+            echo "Nada mudou: nenhum dado novo desde a ultima execucao."
+          else
+            git commit -m "Rotina mensal: dados e relatorio de $(date +%Y-%m-%d)"
+            git push
+          fi
+
+      - name: Guardar o log dos testes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: log-da-rotina
+          path: |
+            logs/
+            mercado_trabalho_novo.csv
+          if-no-files-found: ignore

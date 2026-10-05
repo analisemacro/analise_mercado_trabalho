@@ -18,8 +18,9 @@ jupyter: python3
 ---
 
 ```{python}
-# Todo numero deste relatorio sai de mercado_trabalho.csv e divulgacoes.csv.
+# Os textos e numeros vem de resumo.json (passo 3); o grafico, de mercado_trabalho.csv.
 import csv
+import json
 import os
 from datetime import datetime
 from pathlib import Path
@@ -28,8 +29,10 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 PASTA = Path(os.environ.get("PASTA_DADOS", "."))
-MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
-         "agosto", "setembro", "outubro", "novembro", "dezembro"]
+r = json.loads((PASTA / "resumo.json").read_text(encoding="utf-8"))
+mes_ref, tri_ref, inicio, chegada = r["mes_ref"], r["tri_ref"], r["inicio"], r["chegada"]
+desemp_ult, desemp_1m, desemp_12m = r["desemp_ult"], r["desemp_1m"], r["desemp_12m"]
+rend_ult, rend_1m, rend_12m = r["rend_ult"], r["rend_1m"], r["rend_12m"]
 
 with open(PASTA / "mercado_trabalho.csv", encoding="utf-8-sig") as f:
     linhas = list(csv.DictReader(f, delimiter=";"))
@@ -37,53 +40,9 @@ datas = [datetime.strptime(l["data"], "%Y-%m-%d") for l in linhas]
 desemp = [float(l["taxa_desemprego"]) for l in linhas]
 rend = [float(l["rendimento_medio_real"]) for l in linhas]
 
-with open(PASTA / "divulgacoes.csv", encoding="utf-8-sig") as f:
-    chegadas = {l["mes_referencia"]: l["data_chegada"] for l in csv.DictReader(f, delimiter=";")}
-
 
 def br(x, casas):
     return f"{x:,.{casas}f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-
-def nome_mes(d):
-    return f"{MESES[d.month - 1]} de {d.year}"
-
-
-def trimestre(d):
-    inicio = MESES[(d.month - 3) % 12]
-    return f"{inicio} a {MESES[d.month - 1]} de {d.year}" if d.month >= 3 \
-        else f"{inicio} de {d.year - 1} a {MESES[d.month - 1]} de {d.year}"
-
-
-def var_desemp(i):
-    dif = round(desemp[-1] - desemp[i], 1)
-    if dif == 0:
-        return f"ficou igual ({br(desemp[i], 1)}% em {nome_mes(datas[i])})"
-    verbo = "caiu" if dif < 0 else "subiu"
-    pontos = "ponto percentual" if abs(dif) <= 1 else "pontos percentuais"
-    return f"{verbo} {br(abs(dif), 1)} {pontos} (era {br(desemp[i], 1)}% em {nome_mes(datas[i])})"
-
-
-def var_rend(i):
-    dif = rend[-1] - rend[i]
-    pct = (rend[-1] / rend[i] - 1) * 100
-    if round(dif) == 0:
-        return f"ficou igual (R$ {br(rend[i], 0)} em {nome_mes(datas[i])})"
-    verbo = "subiu" if dif > 0 else "caiu"
-    return (f"{verbo} R$ {br(abs(dif), 0)}, ou {br(abs(pct), 1)}% "
-            f"(era R$ {br(rend[i], 0)} em {nome_mes(datas[i])})")
-
-
-ultimo = datas[-1]
-mes_ref = nome_mes(ultimo)
-tri_ref = trimestre(ultimo)
-chegada_iso = chegadas.get(linhas[-1]["data"])
-chegada = datetime.strptime(chegada_iso, "%Y-%m-%d").strftime("%d/%m/%Y") if chegada_iso else "não registrada"
-desemp_ult = br(desemp[-1], 1)
-rend_ult = br(rend[-1], 0)
-desemp_1m, desemp_12m = var_desemp(-2), var_desemp(-13)
-rend_1m, rend_12m = var_rend(-2), var_rend(-13)
-inicio = nome_mes(datas[0])
 ```
 
 ## Resultado de `{python} mes_ref`
