@@ -1,6 +1,6 @@
 # Rotina mensal: testa o codigo, coleta os dados numa copia de trabalho,
 # testa os dados e, so se tudo passar, atualiza o arquivo oficial, os graficos
-# e gera o relatorio do mes (se ainda nao existir).
+# gera o relatorio do mes (se ainda nao existir) e atualiza a pagina em docs/.
 # Cada teste vai para logs/testes.log com data, hora e resultado.
 import os
 import shutil
@@ -30,6 +30,16 @@ def anotar_chegada(mes):
         with open(DIVULGACOES, "a", encoding="utf-8") as f:
             f.write(f"{mes};{date.today():%Y-%m-%d}\n")
         registrar(f"Mes novo {mes}: chegada anotada em {DIVULGACOES.name}")
+
+
+def publicar_site(pasta_relatorio):
+    """Copia o relatorio mais recente para docs/, a pasta que o GitHub Pages publica."""
+    site = PASTA / "docs"
+    site.mkdir(exist_ok=True)
+    (site / ".nojekyll").touch()
+    shutil.copyfile(pasta_relatorio / "relatorio.html", site / "index.html")
+    shutil.copyfile(pasta_relatorio / "relatorio.pdf", site / "relatorio.pdf")
+    registrar(f"Site atualizado com o relatorio de {pasta_relatorio.name}")
 
 
 def registrar(texto):
@@ -124,5 +134,8 @@ else:
                   "Os dados ja foram atualizados; so o relatorio ficou para tras.")
         os.replace(PASTA / f"relatorio.{extensao}", destino / f"relatorio.{extensao}")
     registrar(f"Relatorio de {mes[:7]} gerado em {destino.relative_to(PASTA)} (HTML e PDF)")
+
+registrar("Etapa 7: pagina do site (pasta docs, publicada pelo GitHub Pages)")
+publicar_site(destino)
 
 registrar("=== Rotina concluida: todos os testes passaram ===")
