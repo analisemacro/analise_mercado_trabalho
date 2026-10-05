@@ -116,7 +116,10 @@ def passo_relatorio():
     registrar("Passo 4: montar o relatorio")
     mes = ultimo_mes(OFICIAL)[:7]
     destino = RELATORIOS / mes
-    if (destino / "relatorio.html").exists() and (destino / "relatorio.pdf").exists():
+    refazer = os.environ.get("REFAZER_RELATORIO", "").lower() == "true"
+    if refazer:
+        registrar(f"Pedido para refazer o relatorio de {mes}")
+    if not refazer and (destino / "relatorio.html").exists() and (destino / "relatorio.pdf").exists():
         registrar(f"Sem dado novo: o relatorio de {mes} ja existe em {destino.relative_to(PASTA)}")
     else:
         quarto = shutil.which("quarto")

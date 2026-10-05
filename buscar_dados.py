@@ -4,6 +4,7 @@
 import json
 import os
 import sys
+import time
 import urllib.request
 from datetime import datetime
 from pathlib import Path
@@ -18,13 +19,23 @@ class ErroColeta(Exception):
     pass
 
 
+TENTATIVAS = 3
+ESPERA = 30  # segundos entre uma tentativa e outra
+
+
 def get_serie(codigo):
     url = f"https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados?formato=json"
-    try:
-        with urllib.request.urlopen(url, timeout=60) as resp:
-            dados = json.load(resp)
-    except Exception as e:
-        raise ErroColeta(f"O Banco Central nao respondeu para a serie {codigo} ({e}). Nada foi gravado.")
+    for tentativa in range(1, TENTATIVAS + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=60) as resp:
+                dados = json.load(resp)
+            break
+        except Exception as e:
+            if tentativa == TENTATIVAS:
+                raise ErroColeta(f"O Banco Central nao respondeu para a serie {codigo} "
+                                 f"depois de {TENTATIVAS} tentativas ({e}). Nada foi gravado.")
+            print(f"Serie {codigo}: tentativa {tentativa} falhou ({e}); nova tentativa em {ESPERA}s", flush=True)
+            time.sleep(ESPERA)
     if not dados:
         raise ErroColeta(f"A serie {codigo} veio vazia. Nada foi gravado.")
     return {d["data"]: d["valor"] for d in dados}

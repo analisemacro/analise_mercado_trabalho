@@ -48,10 +48,24 @@ class TestCodigo(unittest.TestCase):
         with tempfile.TemporaryDirectory() as pasta:
             arq = Path(pasta) / "dados.csv"
             arq.write_text("conteudo antigo", encoding="utf-8")
-            with mock.patch("urllib.request.urlopen", side_effect=OSError("sem conexao")):
+            with mock.patch("urllib.request.urlopen", side_effect=OSError("sem conexao")), \
+                 mock.patch("time.sleep"):
                 with self.assertRaises(bd.ErroColeta):
                     bd.coletar(arq)
             self.assertEqual(arq.read_text(encoding="utf-8"), "conteudo antigo")
+
+    def test_tenta_de_novo_apos_falha(self):
+        """Se o BCB falha uma vez e depois responde, a coleta tenta de novo e grava"""
+        json_falso = '[{"data":"01/03/2012","valor":"8.0"}]'
+        respostas = [OSError("502 Bad Gateway"), resposta_falsa(json_falso), resposta_falsa(json_falso)]
+        with tempfile.TemporaryDirectory() as pasta:
+            arq = Path(pasta) / "dados.csv"
+            with mock.patch("urllib.request.urlopen", side_effect=respostas) as urlopen, \
+                 mock.patch("time.sleep") as espera:
+                bd.coletar(arq)
+            self.assertEqual(urlopen.call_count, 3)
+            espera.assert_called_once_with(bd.ESPERA)
+            self.assertTrue(arq.exists())
 
     def test_serie_vazia_nao_grava(self):
         """Se o BCB devolve uma serie vazia, a coleta para e o arquivo antigo fica intacto"""

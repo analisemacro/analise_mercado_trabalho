@@ -3,6 +3,11 @@ name: Rotina mensal
 
 on:
   workflow_dispatch:
+    inputs:
+      refazer_relatorio:
+        description: "Refazer o relatorio do ultimo mes mesmo sem dado novo"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -44,6 +49,8 @@ jobs:
 
       - name: "Passo 4: montar o relatorio"
         run: python rotina.py relatorio
+        env:
+          REFAZER_RELATORIO: ${{ inputs.refazer_relatorio }}
 
       - name: Guardar o resultado no repositorio
         run: |
